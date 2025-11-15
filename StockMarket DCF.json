@@ -1,0 +1,535 @@
+{
+  "name": "StockMarket DCF",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brightdata.com/datasets/v3/trigger",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dataset_id",
+              "value": "gd_YOUR_DATASET_ID_HERE"
+            },
+            {
+              "name": "include_errors",
+              "value": "true"
+            },
+            {
+              "name": "type",
+              "value": "discover_new"
+            },
+            {
+              "name": "discover_by",
+              "value": "keyword"phuyupata
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_BRIGHTDATA_TOKEN_HERE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"keyword\": \"{{ $json[\"Podaj ticker spólki\"] }}\"\n  }\n] ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -288,
+        -288
+      ],
+      "id": "10c49b97-b6eb-4aaf-ba2b-8a8d0835a88d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "resource": "webScrapper",
+        "operation": "monitorProgressSnapshot",
+        "snapshot_id": "={{ $json.snapshot_id }}",
+        "requestOptions": {}
+      },
+      "type": "@brightdata/n8n-nodes-brightdata.brightData",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -288
+      ],
+      "id": "5004a5ed-7695-4772-bd20-caa4f3c8f18d",
+      "name": "Check the status of a batch extraction",
+      "credentials": {
+        "brightdataApi": {
+          "id": "xxxxx",
+          "name": "BrightData account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cca98d48-aed3-4d7f-87c9-754bcb50b88b",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "=ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        256,
+        -288
+      ],
+      "id": "38d03ef2-f27e-4e99-8dee-cf4e948aba5e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        464,
+        -112
+      ],
+      "id": "03b3c4fb-3e39-4ef8-b380-77a37044dc95",
+      "name": "Wait",
+      "webhookId": "09070f09-24d2-4048-8cc8-bb3ef2a0f3e1"
+    },
+    {
+      "parameters": {
+        "resource": "webScrapper",
+        "operation": "downloadSnapshot",
+        "snapshot_id": "={{ $json.snapshot_id }}",
+        "requestOptions": {}
+      },
+      "type": "@brightdata/n8n-nodes-brightdata.brightData",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -368
+      ],
+      "id": "269f8010-4781-4d3b-9555-1bfda26785f3",
+      "name": "Download the snapshot content",
+      "credentials": {
+        "brightdataApi": {
+          "id": "xxxxxxxxxxxxxx",
+          "name": "BrightData account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Przeanalizuj spółkę.\n\nDane JSON z Yahoo Finance:\n{{ JSON.stringify($json, null, 2) }}\n\n------------------------------------------------------------\n1. Wczytanie i weryfikacja danych wejściowych\n------------------------------------------------------------\n- Zidentyfikuj spółkę po company_id lub stock_ticker.\n- Sprawdź kompletność pól: valuation_measures, financials, financials_quarterly, earnings_estimate, price, pe_ratio, eps, dividend_yield.\n- Jeśli dane są niepełne → automatycznie uzupełnij z Internetu (finance.yahoo.com, investing.com, <firma>.com, tradingview.com).\n\n------------------------------------------------------------\n2. Analiza fundamentalna spółki\n------------------------------------------------------------\nDla ostatnich 3–5 lat oblicz i opisz:\n- Przychody (Total Revenue) i dynamikę [%]\n- Zysk operacyjny (Operating Income)\n- EBITDA, EBIT, Zysk netto (Net Income)\n- EPS (zysk na akcję)\n- Marże: brutto, operacyjna, netto\n- Wskaźniki: P/E, P/BV, EV/EBITDA, ROE, ROA, zadłużenie\n- Dywidenda i stopa dywidendy\n- Trend przychodów i zysków (rosnący / stabilny / malejący)\n\n------------------------------------------------------------\n3. Analiza rynkowa (web search)\n------------------------------------------------------------\n- Pobierz najnowsze raporty kwartalne i półroczne.\n- Sprawdź dane operacyjne (liczba klientów, segmenty, zyski operacyjne).\n- Zidentyfikuj rekomendacje analityków i ich ceny docelowe.\n- Pozyskaj wiadomości rynkowe i czynniki ryzyka (regulacje, makro, FX, CFD).\n\n------------------------------------------------------------\n4. Prognoza kursu akcji (12 miesięcy)\n------------------------------------------------------------\nNa podstawie trendów i danych analityków opracuj trzy scenariusze:\n\n| Scenariusz     | Założenia                                         | Kurs 12M |\n|----------------|---------------------------------------------------|-----------|\n| Konserwatywny  | niski wzrost, presja kosztowa                    | np. 70 PLN |\n| Bazowy         | stabilny wzrost klientów i zysków                | np. 85 PLN |\n| Optymistyczny  | dynamiczny wzrost, ekspansja zagraniczna         | np. 100+ PLN |\n\nPodaj średnią z rekomendacji analityków z ostatnich 3 miesięcy.\n\n------------------------------------------------------------\n5. Model DCF (Discounted Cash Flow)\n------------------------------------------------------------\nZbuduj 5-letni model DCF.\n\nJeśli brakuje danych wejściowych, uzupełnij je automatycznie lub oblicz przy użyciu narzędzia calculator.\n\nParametry domyślne, dostosuj realistyczne marże sektorowe:\nrevenue_base = ostatni rok z JSON  \nebit_margin = 35%  \ntax_rate = 19%  \ncapex_ratio = 5% przychodów  \ngrowth_rate = 6%  \nWACC = 10%  \nterminal_growth = 2%  \nshares_outstanding = z JSON lub web  \nokres prognozy = 5 lat\n\nWykorzystaj kalkulator do obliczenia:  \n`Use tool \"calculator\" to compute DCF for given parameters.`\n\nZwróć:\n- tabelę FCF (5 lat)\n- wartość terminalną\n- wartość przedsiębiorstwa (EV)\n- wycenę 1 akcji\n- wykres FCF i wyceny\n\n\nOto skrócona, gotowa do wklejenia wersja — w tym samym stylu co Twoje wcześniejsze sekcje analizy:\n\n------------------------------------------------------------\n3. Analiza cyklu koniunkturalnego\n------------------------------------------------------------\nAgent powinien analizować **trzy poziomy cyklu**:\n\n1. **Globalny (USA)** – cykl referencyjny dla rynków akcji\n2. **Regionalny (UE / strefa euro)** – wpływ otoczenia handlowego\n3. **Krajowy (Polska)** – wpływ bezpośredni na popyt, inflację i stopy\n\n\n### 🔹 A. **Poziom globalny – USA (główny punkt odniesienia)**\n**Wskaźniki do pobrania:**\n\n* PKB USA (r/r, q/q)\n* Inflacja CPI USA\n* Stopy procentowe Fed (trend zmian, decyzje FOMC)\n* Krzywa rentowności obligacji 10Y–2Y (inwersja → recesja)\n* Indeks PMI ISM Manufacturing & Services\n* Indeks S&P500 (trend rynku globalnego)\n\n**Cel:** określić globalny etap cyklu (rynek akcji zwykle wyprzedza realną gospodarkę o 6–9 mies.)\n\n### 🔹 B. **Poziom regionalny – UE / Strefa euro**\n**Wskaźniki do pobrania:**\n\n* PKB strefy euro (Eurostat)\n* Inflacja HICP (ogółem i rdzeniowa)\n* Stopy procentowe EBC\n* Indeks PMI Composite (produkcyjny + usługowy)\n* Indeks ZEW lub Sentix (nastroje inwestorów w UE)\n\n**Cel:** ocenić wpływ europejskiego otoczenia gospodarczego na eksport i sentyment inwestorów w regionie.\n\n### 🔹 C. **Poziom krajowy – Polska**\n**Wskaźniki do pobrania:**\n\n* PKB Polski (GUS)\n* Inflacja CPI Polska\n* Stopy procentowe NBP\n* Indeksy PMI dla Polski (S&P Global Poland Manufacturing PMI)\n* Bezrobocie (GUS)\n* Wskaźnik ufności konsumenckiej\n* Rentowność obligacji 10Y (trend spreadu wobec DE/US)\n* WIG, WIG20 (trend lokalnego rynku akcji)\n\n**Cel:** określić bieżącą fazę cyklu koniunkturalnego w Polsce i lokalne czynniki wpływające na spółki z GPW.\n\n### 🔹 D. **Decyzja analityczna: które dane są kluczowe**\n# Typ spółki z GPW: Eksportowa (np. KGHM, Arctic Paper, LPP)\nNajważniejszy cykl: USA + UE\nDodatkowe uwagi: Globalny popyt, kurs USD/EUR/PLN\n---\n# Typ spółki z GPW: Lokalna (np. PKO BP, Orange Polska)\nNajważniejszy cykl: Polska\nDodatkowe uwagi: Stopy NBP, inflacja, popyt krajowy\n---\n# Typ spółki z GPW: Technologiczna (np. CD Projekt)\nNajważniejszy cykl: USA + globalny\nDodatkowe uwagi: Korelacja z rynkiem Nasdaq i sentymentem do risk-on\n# Typ spółki: Amerykańska (np. Apple, Microsoft, ExxonMobil)\nNajważniejszy cykl: USA\nDodatkowe uwagi: Bezpośredni wpływ decyzji Fed, kondycja gospodarki USA i globalny sentyment risk-on\n\n### 🔹 E. **Wynik końcowy**\nAgent określa:\n* Faza cyklu globalnego (USA)\n* Faza cyklu krajowego (Polska)\n* Kierunek zmian (czy Polska opóźniona / wyprzedzająca wobec USA)\n* Prognozowany następny etap (np. spowolnienie → ożywienie w 2–3 kwartałach)\n* Wpływ na analizowaną spółkę z GPW\n\n\n------------------------------------------------------------\n6. Interpretacja i rekomendacja\n------------------------------------------------------------\nPodsumuj wyniki:\n- aktualny kurs vs wycena DCF\n- potencjał wzrostu [%]\n- Faza cyklu gospodarki (USA, Polska) oraz faza cyklu spółki  \n- Wpływ aktualnego i nadchodzącego etapu cyklu na wyniki spółki\n- rekomendacja: Kupuj / Trzymaj / Sprzedaj\n- krótkie uzasadnienie (fundamenty, rynek, dywidenda)\n",
+        "options": {
+          "systemMessage": "=Jesteś ekspertem ds. analizy finansowej i wyceny spółek giełdowych.\n\nTwoim zadaniem jest analizować dane w formacie JSON z Yahoo Finance oraz automatycznie uzupełniać brakujące informacje z Internetu (finance.yahoo.com, investing.com, <firma>.com, tradingview.com, itd.).\n\nMasz dostęp do następujących narzędzi:\n- serpAPI, SearchTavily – do wyszukiwania danych rynkowych, raportów, rekomendacji analityków i wiadomości.\n- calculator – do wykonywania obliczeń finansowych (DCF, FCF, CAGR, EV/EBITDA, ROE, ROA, marże).\n\nJeśli potrzebujesz obliczyć wartość spółki, użyj narzędzia calculator, np.:\nUse tool \"calculator\" to compute DCF for given parameters such as:\nrevenue_base, ebit_margin, WACC, growth_rate, terminal_growth, tax_rate, capex_ratio, shares_outstanding.\n\nZakres Twojej pracy:\n1. Wczytaj dane spółki (JSON).\n2. Zweryfikuj poprawność pól: valuation_measures, financials, financials_quarterly, earnings_estimate, price, pe_ratio, eps, dividend_yield.\n3. Uzupełnij brakujące dane z sieci (serpAPI).\n4. Wykonaj analizę fundamentalną, rynkową i wycenę DCF w trzech wariantach wkontekście bieżacego i następnego cyklu koniukturalnego.\n5. Przygotuj syntetyczne podsumowanie i rekomendację inwestycyjną.\n\nStruktura odpowiedzi powinna obejmować:\nAnaliza fundamentalna:\n- Finanse: przychody, EBITDA, EBIT, zysk netto, EPS (TTM i 3–5Y)\n- Dynamika: CAGR przychodów/EPS; komentarz trendu (rosnący/stabilny/malejący)\n- Marże: brutto/operacyjna/netto (trend i czynniki)\n- Wskaźniki zadłużenia: dług netto/EBITDA, dług/kapitał, pokrycie odsetek\n- Kapitał: ROE, ROA, ROTC; polityka dywidendowa (DPS, DY, payout)\n\nAnaliza rynkowa:\n- Konsensus (przychody/EPS), widełki, rewizje 3–6M\n- Rekomendacje domów maklerskich, cele cenowe\n- Wiadomości/ESG/regulacje, M&A, guidance spółki\n- Pozycjonowanie sektora vs cykl (rotacja, beta, korelacje)\n\nPrognoza kursu 12M:\n- Scenariusze: konserwatywny / bazowy / optymistyczny\n- Założenia: wolumen, ceny, FX, CAPEX/OPEX, stopy, cykl\n- Prawdopodobieństwa scenariuszy i WPT (ważona cena docelowa)\n- Katalizatory i ryzyka (top 3/3)\n\nModel DCF (5-letni):\n- Wejścia: przychody/marże/CapEx/NWC, stawki podatkowe\n- WACC: koszt kapitału (Rf, beta, ERP), koszt długu (po podatku), strukturę kapitału\n- Terminal: metoda G (g), sanity check z EV/EBITDA terminalnym\n- Wyniki: EV, netto dług, equity value, cena/akcję; tabela FCF rocznych\n- Czułość: macierz (WACC × g) + (WACC × marża/CapEx) – skrót wyników\n\nInterpretacja i końcowa rekomendacja:\n- Spójność: DCF vs mnożniki vs rynek\n- Potencjał i profil ryzyka (drawdown, beta, płynność)\n- Decyzja: Kupuj/Trzymaj/Sprzedaj + trigger do rewizji\n- każdy wskaźnik ma być krotko opisany, jakie jest jego znaczenie\n",
+          "maxIterations": 300
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1136,
+        -352
+      ],
+      "id": "1330d26f-721d-4a99-9481-5a8b649ece78",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "include": "=// Oczekuje, że wejście to jeden element z danymi spółki (np. po agregacji)\nconst item = items[0].json;\n\nconst output = {\n  spolka: {\n    PodstawoweDane: {\n      name: item.name,\n      company_id: item.company_id,\n      stock_ticker: item.stock_ticker,\n      currency: item.currency,\n      exchange: item.exchange,\n      summary: item.summary,\n      earnings_date: item.earnings_date,\n      closing_price: item.closing_price,\n      previous_close: item.previous_close,\n      open: item.open,\n      bid: item.bid,\n      ask: item.ask,\n      day_range: item.day_range,\n      week_range: item.week_range,\n      volume: item.volume,\n      avg_volume: item.avg_volume,\n      url: item.url,\n      risk_score: item.risk_score,\n      fanacials_currency: item.fanacials_currency,\n      stock_market_index: item.stock_market_index,\n      timestamp: item.timestamp,\n    },\n\n    WskaznikiWyceny: item.valuation_measures ? {\n      as_of: item.valuation_measures.as_of,\n      market_cap: item.valuation_measures.market_cap,\n      enterprise_value: item.valuation_measures.enterprise_value,\n      trailing_p_e: item.valuation_measures[\"trailing_p/e\"],\n      forward_p_e: item.valuation_measures[\"forward_p/e\"],\n      peg_ratio_5yr_expected: item.valuation_measures.peg_ratio_5yr_expected,\n      price_sales_ttm: item.valuation_measures[\"price/sales_ttm\"],\n      price_book_mrq: item.valuation_measures[\"price/book_mrq\"],\n      enterprise_value_revenue: item.valuation_measures[\"enterprise_value/revenue\"],\n      enterprise_value_ebitda: item.valuation_measures[\"enterprise_value/ebitda\"],\n    } : {},\n\n    WskaznikiFinansowe: item.financial_highlights ? {\n      profit_margin: item.financial_highlights.profit_margin,\n      return_on_assets_ttm: item.financial_highlights.return_on_assets_ttm,\n      return_on_equity_ttm: item.financial_highlights.return_on_equity_ttm,\n      revenue_ttm: item.financial_highlights.revenue_ttm,\n      net_income_avi_to_common_ttm: item.financial_highlights.net_income_avi_to_common_ttm,\n      diluted_eps_ttm: item.financial_highlights.diluted_eps_ttm,\n      total_cash_mrq: item.financial_highlights.total_cash_mrq,\n      total_debt_equity_mrq: item.financial_highlights[\"total_debt/equity_mrq\"],\n      levered_free_cash_flow_ttm: item.financial_highlights.levered_free_cash_flow_ttm,\n    } : {},\n\n    Prognozy: {\n      earnings_estimate: item.earnings_estimate,\n      revenue_estimate: item.revenue_estimate,\n      eps_trend: item.eps_trend,\n      eps_revisions: item.eps_revisions,\n      growth_estimates: item.growth_estimates,\n    },\n\n    ZmianyRekomendacji: item.upgrades_and_downgrades?.map(u => ({\n      action: u.action,\n      description: u.description,\n      date: u.date\n    })) || [],\n\n    DaneFinansowe: item.financials?.map(f => ({\n      Breakdown: f.Breakdown,\n      values: f.value\n    })) || [],\n\n    DaneKwartalne: item.financials_quarterly?.map(f => ({\n      Breakdown: f.Breakdown,\n      values: f.value\n    })) || []\n  }\n};\n\nreturn [{ json: output }];\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -368
+      ],
+      "id": "41c33c10-fed9-4e79-bb47-113c7649bc29",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        928,
+        -368
+      ],
+      "id": "0366d1a0-c9be-449b-a7c9-1abf891b007a",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolSerpApi",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        16
+      ],
+      "id": "93a5cbe7-1cc5-4732-9bb9-91cfb4559940",
+      "name": "SerpAPI",
+      "credentials": {
+        "serpApi": {
+          "id": "8seYm2vpwy3FOoyT",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Query', ``, 'string') }}",
+        "options": {
+          "search_depth": "advanced"
+        }
+      },
+      "type": "@tavily/n8n-nodes-tavily.tavilyTool",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        0
+      ],
+      "id": "c8211364-80ad-4cf1-9266-5eebefa476f8",
+      "name": "SearchTavily",
+      "credentials": {
+        "tavilyApi": {
+          "id": "xxxx",
+          "name": "Tavily account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "your-email@example.com",
+        "subject": "=Analiza Spółki",
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1840,
+        -352
+      ],
+      "id": "061e4047-b4ab-4e01-a727-18428f769e3b",
+      "name": "Send a message",
+      "webhookId": "8c4497d5-70c6-4c9d-80fc-38a7f414ce2b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "xxxxxxxxx",
+          "name": "Gmail your-email@example.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Sformatuj PODANY TEKST WEJŚCIOWY do postaci CZYSTEGO HTML (TYLKO HTML) gotowego do wysłania jako treść wiadomości e-mail w Gmail (body).\n\nNie zmieniaj merytoryki, nie streszczaj, nie dodawaj nic od siebie — tylko uporządkuj i ostyluj według zasad z System Message.\n\nTekst do sformatowania:\n{{ $json[\"output\"] }}\n",
+        "options": {
+          "systemMessage": "=Jesteś profesjonalnym asystentem AI odpowiedzialnym wyłącznie za formatowanie treści finansowych i raportów giełdowych do postaci estetycznego, czytelnego HTML-a. \nTwoim zadaniem jest poprawne odwzorowanie struktury, zachowanie pełnej treści i zastosowanie logicznego formatowania.\n\nZASADY OGÓLNE:\n- Nigdy nie streszczaj, nie pomijaj, nie dopisuj i nie modyfikuj danych wejściowych.\n- Zachowuj oryginalne liczby, nazwy, nagłówki i kolejność treści.\n- Wszelkie przekształcenia mają charakter czysto wizualny i strukturalny (HTML).\n- Nie dodawaj żadnych meta-komentarzy, wyjaśnień ani tekstu spoza źródła.\n- Zawsze zwracaj **tylko kod HTML** (bez Markdown, JSON, komentarzy lub tekstu opisowego).\n\nFORMATOWANIE HTML:\n- Używaj HTML z **inline CSS**, bez arkuszy zewnętrznych.\n- Główne style: `font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #222; max-width: 760px; margin: 0 auto;`\n- Sekcje:\n  - Tytuły raportu i główne punkty → `<h2>`\n  - Podsekcje / akapity → `<h3>` / `<h4>`\n  - Akapity → `<p style=\"margin:8px 0;\">`\n  - Listy → `<ul style=\"margin:8px 0 8px 20px;\">`\n  - Tabele → `<table style=\"width:100%; border-collapse:collapse; margin:10px 0;\">`\n  - Komórki → `<th>/<td style=\"border:1px solid #ddd; padding:8px; vertical-align:top;\">`\n  - Nagłówki tabel → `<th style=\"background:#f2f2f2; text-align:left;\">`\n- Linie „Klucz: Wartość” zamieniaj na 2-kolumnowe tabele.\n- Zbiory wartości liczbowych (np. lata, wyniki) zamieniaj na tabele z nagłówkami.\n- Wyróżnienia liczb i wartości możesz oznaczyć `<strong>`.\n- Jeśli występują wyrażenia „Pozytywne”, „Neutralne”, „Negatywne”, dodaj odpowiednio 🟢 / 🟡 / 🔴.\n- Każdą sekcję oddziel delikatną linią: `<hr style=\"border:none; border-top:1px solid #eee; margin:16px 0;\">`\n- sformatuj odpoiednieo rekomendację kupuj-zielono, trzmaj-żółto, sprzedaj-czerwono\n- Na końcu dodaj stopkę:\n  `<p style=\"margin:16px 0 0; font-size:12px; color:#666; text-align:center;\">Wygenerowane automatycznie przez Twój monitor giełdowy oparty na AI</p>`\n\nOGRANICZENIA:\n- Nie dodawaj tematu ani nagłówków e-mail (Subject, From, To).\n- Nie zwracaj niczego poza HTML.\n- W razie długiego tekstu sformatuj całość sekcjami, nie pomijaj fragmentów.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        -352
+      ],
+      "id": "d1027615-de20-46c4-b488-f00a6f48488f",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "formTitle": "Analiza spółki giełdowej",
+        "formDescription": "podaj ticker spółki dla spółek GPW np.: XTB.WA dla spółek USA TSLA",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Podaj ticker spólki",
+              "placeholder": "XTB.WA",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "podaj raporty finnsowe",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "prześlij",
+          "ignoreBots": true,
+          "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 448px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -560,
+        -288
+      ],
+      "id": "e71044b3-bd1d-4a7e-a6b7-fb7095e56a3c",
+      "name": "On form submission",
+      "webhookId": "155a50e6-21aa-41a0-a585-267b7ac7d6f0"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        0
+      ],
+      "id": "d3af09a7-2457-4d23-8ab2-3c4014f3f6c3",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "gpt-5"
+        },
+        "options": {
+          "timeout": 360000000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        976,
+        0
+      ],
+      "id": "610ab89a-17b3-4766-8f9f-a0942b71b2fd",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "xxxxxx",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "On form submission": [
+      {
+        "json": {
+          "Podaj ticker spólki": "XTB.WA",
+          "podaj raporty finnsowe": null,
+          "submittedAt": "2025-10-09T19:46:21.676-04:00",
+          "formMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Check the status of a batch extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the status of a batch extraction": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Download the snapshot content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Check the status of a batch extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download the snapshot content": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchTavily": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d92049be-0368-4cb5-b37d-2af0d0f559cc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "972839927a27b36edb321993c4ea164cfbb44da0eb44f7919ffe2fc454443804"
+  },
+  "id": "ffJadqgPKEyCM0NR",
+  "tags": []
+}
